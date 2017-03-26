@@ -1,0 +1,386 @@
+/* Report the critical-case patients with numbers of admissions to ICU greater than 4 */
+SELECT Patient_SSN, First_Name, Last_Name
+FROM CriticalCases
+WHERE Count > 4;
+
+/* Report the female overloaded doctors */
+SELECT Doctor_ID, First_Name, Last_Name
+FROM DoctorsLoad, Doctor
+WHERE 	DoctorsLoad.Doctor_ID = Doctor.ID AND
+		Load = 'Overloaded' AND
+		DoctorsLoad.Gender = 'F';
+
+/* Report the comments inserted by underloaded doctors when examining critical-case patients */
+SELECT Doctor_ID, Patient_SSN, Comments
+FROM (	/* Admissions that were critical-case */
+		SELECT Admission.Num AS Admission_Num, Admission.Patient_SSN AS Patient_SSN
+		FROM Admission, CriticalCases
+		WHERE Admission.Patient_SSN = CriticalCases.Patient_SSN) S,
+	 (	/* Overloaded Doctors and their admission numbers and comments*/
+		SELECT Examine.Doctor_ID AS Doctor_ID, Examine.Admission_Num AS Admission_Num, Comments  
+		FROM DoctorsLoad, Examine
+		WHERE 	DoctorsLoad.Doctor_ID = Examine.Doctor_ID AND
+				DoctorsLoad.Load = 'Underloaded') R
+WHERE S.Admission_Num = R.Admission_Num;
+
+/* First drop all existing tables */
+DROP TABLE Stay_In;
+DROP TABLE Examine;
+DROP TABLE Admission;
+DROP TABLE Doctor;
+DROP TABLE Patient;
+DROP TABLE Equipment;
+DROP TABLE Room_Access;
+DROP TABLE Room_Service;
+DROP TABLE Room;
+DROP TABLE Equipment_Type;
+DROP TABLE Employee;
+
+/*--------------------------------------------------PART 1--------------------------------------------------*/
+/* Create the Employee table */
+CREATE TABLE Employee (
+	ID 			 	int 			PRIMARY KEY,
+	First_Name	 	varchar(255)	NOT NULL,
+	Last_Name	 	varchar(255)	NOT NULL,
+	Salary		 	int				NOT NULL,
+	Job_Title 		varchar(255)	NOT NULL,
+	Office_Num 	 	int				NOT NULL,
+	Emp_Rank		varchar(255)	NOT NULL,
+	Supervisor_ID 	int				
+);
+
+/* Create the Equipment_Type table */
+CREATE TABLE Equipment_Type (
+	ID 			 int 			PRIMARY KEY,
+	Description  varchar(255) 	NOT NULL,
+	Model 		 varchar(255) 	NOT NULL,
+	Instructions varchar(255) 	NOT NULL
+);
+
+/* Create the Room table */
+CREATE TABLE Room (
+	Num 		 	int 		PRIMARY KEY,
+	Occupied_Flag 	char(1)		DEFAULT 'N'
+);
+
+/* Create the Room_Service table */
+CREATE TABLE Room_Service (
+	Room_Num 	int 			REFERENCES Room (Num),
+	Service 	varchar(255) 	UNIQUE
+);
+
+/* Create the Room_Access table */
+CREATE TABLE Room_Access (
+	Room_Num 		int 	REFERENCES Room (Num),
+	Employee_ID  	int 	REFERENCES Employee (ID)
+);
+
+/* Create the Equipment table */
+CREATE TABLE Equipment (
+	Serial_Num 	   		int 	PRIMARY KEY,
+	Type_ID 		   	int 	REFERENCES EquipmentType(ID),
+	Purchase_Year   	int 	NOT NULL,
+	Last_Inspection 	int 	NOT NULL,
+	Room_Num 	   		int 	REFERENCES Room(Num) 	/* This may be an issue */
+);	
+
+/* Create the Patient table */
+CREATE TABLE Patient (
+	SSN 		 	int 			PRIMARY KEY,
+	First_Name 	 	varchar(255) 	NOT NULL,
+	Last_Name 		varchar(255) 	NOT NULL,
+	Address 	 	varchar(255) 	NOT NULL,
+	Telephone_Num 	int 			NOT NULL
+);
+
+/* Create the Doctor table */
+CREATE TABLE Doctor (
+	ID 			int 			PRIMARY KEY,
+	Gender 		char(1) 		NOT NULL,
+	Specialty	varchar(255)	NOT NULL,
+	Last_Name 	varchar(255) 	NOT NULL,
+	First_Name 	varchar(255) 	NOT NULL,
+	CONSTRAINT genderVal CHECK (Gender in ('M', 'F'))
+);
+
+/* Create the Admission table */
+CREATE TABLE Admission (
+	Num 				int 	PRIMARY KEY,
+	Admission_Date 		date 	NOT NULL,
+	Leave_Date 			date 	NOT NULL,
+	Total_Payment 		int 	NOT NULL,
+	Insurance_Payment 	int 	NOT NULL,
+	Patient_SSN 		int 	REFERENCES Patient(SSN),
+	Future_Visit 		date 
+);
+
+/* Create the Examine table */
+CREATE TABLE Examine (
+	Doctor_ID 		int 			REFERENCES Doctor(ID),
+	Admission_Num 	int 			REFERENCES Admission(Num),
+	Comments 		varchar(255)
+);
+
+/* Create the Stay_In table */
+CREATE TABLE Stay_In (
+	Admission_Num 	int 	REFERENCES Admission(Num),
+	Room_Num 		int 	REFERENCES Room(Num),
+	Start_Date 		date 	NOT NULL,
+	End_Date 		date 	NOT NULL
+);
+
+/*--------------------------------------------------PART 3--------------------------------------------------*/
+/* Populate regular Employees */
+INSERT INTO Employee 
+VALUES (10, 'Carlos', 'Bryant', 50, 'Janitor', 100, 3, 20);
+INSERT INTO Employee 
+VALUES (11, 'Josh', 'Norton', 51, 'Janitor', 101, 3, 20);
+INSERT INTO Employee 
+VALUES (12, 'Randall', 'Palmer', 52, 'Food Service', 102, 3, 21);
+INSERT INTO Employee 
+VALUES (13, 'Terrence', 'Woods', 53, 'Food Service', 103, 3, 21);
+INSERT INTO Employee 
+VALUES (14, 'Georgia', 'Obrien', 54, 'Nurse', 104, 3, 22);
+INSERT INTO Employee 
+VALUES (15, 'Andy', 'Simpson', 55, 'Nurse', 105, 3, 22);
+INSERT INTO Employee 
+VALUES (16, 'Vernon', 'Soto', 56, 'Surgeon', 106, 3, 22);
+INSERT INTO Employee 
+VALUES (17, 'Johanna', 'Webb', 57, 'Surgeon', 107, 3, 23);
+INSERT INTO Employee 
+VALUES (18, 'Paul', 'Dean', 58, 'Lawyer', 108, 3, 23);
+INSERT INTO Employee 
+VALUES (19, 'Sheila', 'Lambert', 59, 'Lawyer', 109, 3, 23);
+
+/* Populate Division Managers */
+INSERT INTO Employee
+VALUES (20, 'Marco', 'Fletcher', 100, 'Division Manager 1', 120, 2, 30);
+INSERT INTO Employee
+VALUES (21, 'Ed', 'Bowman', 101, 'Division Manager 1', 121, 2, 30);
+INSERT INTO Employee
+VALUES (22, 'Ronald', 'Klein', 102, 'Division Manager 2', 122, 2, 31);
+INSERT INTO Employee
+VALUES (23, 'Whitney', 'Mitchell', 103, 'Division Manager 2', 123, 2, 31);
+
+/* Populate General Managers */
+INSERT INTO Employee
+VALUES (30, 'Katrina', 'Daniels', 150, 'General Manager 2', 130, 1, NULL);
+INSERT INTO Employee
+VALUES (31, 'Ramiro', 'Wells', 151, 'General Manager 1', 131, 1, NULL);
+
+
+
+import java.util.Scanner;
+import java.sql.*;
+
+public class reporting {
+	public static void main(String [] args) throws SQLException {
+		/* Declare Variables */
+		String username; // User name to enter database
+		String password; // Password to enter database
+		int mode;	 	 // Mode of program
+		String query;	 // Will hold the query for the database
+		Statement stmt;	 // The statement to be sent to the database
+		ResultSet rset;	 // The result from the query
+		String fname, lname, address, gender; 	 		// Holds information from the query
+		String patient_ssn, date, total_payment; 		// More information from the query
+		String room_num, from_date, to_date, doc_id;	// More information from the query
+		Scanner scan = new Scanner(System.in); 	 		// Gotta scan those inputs somehow
+
+		/* If there are no values entered on the arguments line */
+		if (args.length == 0){
+			System.out.println("Must enter User name and Password as arguments.");
+			System.exit(0);
+		}
+
+		/* If just the user name and password was entered into the arguments line */
+		if (args.length == 2){
+			System.out.println("1- Report Patients Basic Information");
+			System.out.println("2- Report Doctors Basic Information");
+			System.out.println("3- Report Admissions Information");
+			System.out.println("4- Update Admissions Payment");
+			System.exit(0);
+		}
+
+		/* Set known values */
+		username = args[0];
+		password = args[1];
+		mode = Integer.parseInt(args[2]);
+
+		/* Register the driver to connect to the database */
+		try {
+		Class.forName("oracle.jdbc.driver.OracleDriver");
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+            return;
+        }
+        Connection connection = null;
+        try {
+            connection = DriverManager.getConnection("jdbc:oracle:thin:@oracle.wpi.edu:1521:orcl", 
+            											username, password);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return;
+        }
+
+		/* Determine which mode to open based off of the argument entered for the mode */
+		switch (mode) {
+			/*--------------------------------------------MODE 1--------------------------------------------*/
+			/* 1- Report Patients Basic Information mode */
+			/* Queries a patients info based on the entered Patient's SSN */
+			case 1:
+				/* Get the desired Patient's SSN */
+				System.out.print("Enter Patient SSN: ");
+				String ssn = scan.next();
+
+				/* Create the query */
+				query = ("SELECT * FROM Patient WHERE SSN = '" + ssn +"'");
+
+				/* Get the query results */
+				stmt = connection.createStatement();
+				rset = stmt.executeQuery(query);
+
+				/* Print the results in a form readable for the user */
+				while (rset.next()) {
+					fname = rset.getString("First_Name");
+					lname = rset.getString("Last_Name");
+					address = rset.getString("Address");
+					System.out.println( "Patient SSN: " + ssn + "\n" +
+										"Patient First Name: " + fname + "\n" +
+										"Patient Last Name: " + lname + "\n" +
+										"Patient Address: " + address);
+				}
+
+				/* Close everything */
+				rset.close();
+				stmt.close();
+
+				break;
+			/*----------------------------------------------------------------------------------------------*/
+			/*--------------------------------------------MODE 2--------------------------------------------*/
+			/* 2- Report Doctors Basic Information mode */
+			/* Queries a Doctor's information based on the specified Doctor ID */
+			case 2:
+				/* Get the desired Doctor's ID */
+				System.out.print("Enter Doctor ID: ");
+				String id = scan.next();
+
+				/* Create the Query */
+				query = ("SELECT * FROM Doctor WHERE ID = '" + id + "'");
+
+				/* Get the Query's results */
+				stmt = connection.createStatement();
+				rset = stmt.executeQuery(query);
+
+				/* Print out the results */
+				while (rset.next()){
+					fname = rset.getString("First_Name");
+					lname = rset.getString("Last_Name");
+					gender = rset.getString("Gender");
+					System.out.println( "Doctor ID: " + id + "\n" +
+										"Doctor First Name: " + fname + "\n" +
+										"Doctor Last Name: " + lname + "\n" +
+										"Doctor Gender: " + gender);
+				}
+
+				/* Close everything */
+				rset.close();
+				stmt.close();
+
+				break;
+			/*----------------------------------------------------------------------------------------------*/
+			/*--------------------------------------------MODE 3--------------------------------------------*/	
+			case 3:
+				/* Get the desired Admission Number */
+				System.out.print("Enter Admission Number: ");
+				String num = scan.next();
+
+				/* Create the Query to get admission info */
+				query = ("SELECT * FROM Admission WHERE Num = '" + num + "'");
+
+				/* Get the Query's results */
+				stmt = connection.createStatement();
+				rset = stmt.executeQuery(query);
+
+				/* Print out the results */
+				while (rset.next()){
+					patient_ssn = rset.getString("Patient_SSN");
+					date = rset.getString("Admission_Date");
+					total_payment = rset.getString("Total_Payment");
+					System.out.println( "Admission Number: " + num + "\n" +
+										"Patient SSN: " + patient_ssn + "\n" +
+										"Admission date (start date): " + date + "\n" +
+										"Total Payment: " + total_payment);
+				}
+
+				/* Create the Query to get the room information */
+				query = ("SELECT * FROM Stay_In WHERE Admission_Num = '" + num +"'");
+
+				/* Get the Query's results */
+				stmt = connection.createStatement();
+				rset = stmt.executeQuery(query);
+				System.out.println("Rooms:");
+
+				/* Print those results */
+				while (rset.next()) {
+					room_num = rset.getString("Room_Num");
+					from_date = rset.getString("Start_Date");
+					to_date = rset.getString("End_Date");
+					System.out.println(	"\tRoomNum: " + room_num +
+										" FromDate: " + from_date +
+										" ToDate: " + to_date);
+				}
+
+				/* Create the Query to get the doctors associated with that admission */
+				query = ("SELECT DISTINCT Doctor_ID FROM Examine WHERE Admission_Num = '" + num + "'");
+
+				/* Get the Query's results */
+				stmt = connection.createStatement();
+				rset = stmt.executeQuery(query);
+				System.out.println("Doctors examined the patient in this admission:");
+
+				/* Print those results! */
+				while (rset.next()) {
+					doc_id = rset.getString("Doctor_ID");
+					System.out.println("\tDoctor ID: " + doc_id);
+				}
+
+				/* Close everything */
+				rset.close();
+				stmt.close();
+
+				break;
+			/*----------------------------------------------------------------------------------------------*/
+			/*--------------------------------------------MODE 4--------------------------------------------*/
+			case 4:
+				/* Get the Admission number and new Total Payment */
+				System.out.print("Enter Admission Number: ");
+				String ad_num = scan.next();
+				System.out.print("Enter the new total payment: ");
+				String payment = scan.next();
+
+				/* Create the Query */
+				query = ("UPDATE Admission SET Total_Payment = '" + payment + 
+							"' WHERE Num = '" + ad_num + "'");
+
+				/* Send out the Update */
+				stmt = connection.createStatement();
+				rset = stmt.executeQuery(query);
+
+				/* Close everything */
+				rset.close();
+				stmt.close();
+
+				break;
+			/*----------------------------------------------------------------------------------------------*/
+			default :
+				System.out.println("Invalid mode number.");
+				System.exit(0);
+		}
+
+		/* Close Connection */
+		connection.close();
+	}
+}
+
+
